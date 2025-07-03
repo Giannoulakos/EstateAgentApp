@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import CustomersPage from './components/CustomersPage';
 import PropertiesPage from './components/PropertiesPage';
+import { detectCsvType, parseCSVText } from './utils/propertyUtils';
 
 // Environment variables
 const MAX_FILE_SIZE = parseInt(
@@ -16,8 +17,10 @@ const APP_NAME = import.meta.env.REACT_APP_APP_NAME || 'Real Estate Agent';
 const API_URL = import.meta.env.REACT_APP_API_URL;
 
 function App() {
-  const [csvData, setCsvData] = useState<string[][]>([]);
-  const [fileName, setFileName] = useState<string>('');
+  const [customersCsvData, setCustomersCsvData] = useState<string[][]>([]);
+  const [propertiesCsvData, setPropertiesCsvData] = useState<string[][]>([]);
+  const [customersFileName, setCustomersFileName] = useState<string>('');
+  const [propertiesFileName, setPropertiesFileName] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<string>('customers');
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,20 +50,43 @@ function App() {
     }
 
     if (file && (file.type === 'text/csv' || fileExtension === '.csv')) {
-      setFileName(file.name);
+      // Set filename based on current page
+      if (currentPage === 'customers') {
+        setCustomersFileName(file.name);
+      } else if (currentPage === 'properties') {
+        setPropertiesFileName(file.name);
+      }
+
       const reader = new FileReader();
 
       reader.onload = (e) => {
         const text = e.target?.result as string;
-        const rows = text
-          .split('\n')
-          .map((row) => row.split(',').map((cell) => cell.trim()));
-        setCsvData(rows.filter((row) => row.some((cell) => cell.length > 0)));
+        const filteredRows = parseCSVText(text);
+
+        // Detect CSV type
+        const detectedType = detectCsvType(filteredRows);
+
+        // Warn if CSV type doesn't match current page
+        if (detectedType !== 'unknown' && detectedType !== currentPage) {
+          const shouldContinue = confirm(
+            `This appears to be a ${detectedType} CSV file, but you're on the ${currentPage} page. ` +
+              `Would you like to continue anyway? (Consider switching to the ${detectedType} page for better results)`
+          );
+          if (!shouldContinue) return;
+        }
+
+        // Set CSV data based on current page
+        if (currentPage === 'customers') {
+          setCustomersCsvData(filteredRows);
+        } else if (currentPage === 'properties') {
+          setPropertiesCsvData(filteredRows);
+        }
 
         if (DEBUG_MODE) {
-          console.log('CSV loaded:', {
+          console.log(`${currentPage} CSV loaded:`, {
             fileName: file.name,
-            rows: rows.length,
+            rows: filteredRows.length,
+            detectedType,
           });
         }
       };
@@ -72,12 +98,36 @@ function App() {
   };
 
   const clearData = () => {
-    setCsvData([]);
-    setFileName('');
+    if (currentPage === 'customers') {
+      setCustomersCsvData([]);
+      setCustomersFileName('');
+    } else if (currentPage === 'properties') {
+      setPropertiesCsvData([]);
+      setPropertiesFileName('');
+    }
+
     if (DEBUG_MODE) {
-      console.log('CSV data cleared');
+      console.log(`${currentPage} CSV data cleared`);
     }
   };
+
+  // Get current page data
+  const getCurrentPageData = () => {
+    if (currentPage === 'customers') {
+      return {
+        csvData: customersCsvData,
+        fileName: customersFileName,
+      };
+    } else if (currentPage === 'properties') {
+      return {
+        csvData: propertiesCsvData,
+        fileName: propertiesFileName,
+      };
+    }
+    return { csvData: [], fileName: '' };
+  };
+
+  const { csvData, fileName } = getCurrentPageData();
 
   return (
     <div
@@ -116,8 +166,15 @@ function App() {
           }}
         >
           <h2 style={{ margin: '0 0 15px 0', color: '#2c3e50' }}>
-            Data Upload
+            {currentPage === 'customers'
+              ? 'Customer Data Upload'
+              : 'Property Data Upload'}
           </h2>
+          <p style={{ margin: '0 0 15px 0', color: '#666', fontSize: '14px' }}>
+            {currentPage === 'customers'
+              ? 'Upload a CSV file with customer information (name, email, phone, etc.)'
+              : 'Upload a CSV file with property listings (title, type, location, price, etc.)'}
+          </p>
           {DEBUG_MODE && (
             <div
               style={{
@@ -187,8 +244,12 @@ function App() {
             flexDirection: 'column',
           }}
         >
-          {currentPage === 'customers' && <CustomersPage csvData={csvData} />}
-          {currentPage === 'properties' && <PropertiesPage />}
+          {currentPage === 'customers' && (
+            <CustomersPage csvData={customersCsvData} />
+          )}
+          {currentPage === 'properties' && (
+            <PropertiesPage csvData={propertiesCsvData} />
+          )}
         </div>
       </div>
     </div>

@@ -57,3 +57,80 @@ export const sortProperties = (
       return sorted;
   }
 };
+
+// Utility functions for CSV type detection
+export const detectCsvType = (
+  csvData: string[][]
+): 'customers' | 'properties' | 'unknown' => {
+  if (csvData.length === 0) return 'unknown';
+
+  const headers = csvData[0].map((h) => h.toLowerCase().trim());
+
+  // Common customer fields
+  const customerFields = [
+    'contact id',
+    'first name',
+    'last name',
+    'email',
+    'phone',
+    'primary address',
+    'type',
+    'name',
+    'customer',
+    'client',
+    'contact',
+  ];
+  const propertyFields = [
+    'title',
+    'price',
+    'bedrooms',
+    'bathrooms',
+    'sqft',
+    'location',
+    'address',
+    'property',
+    'listing',
+  ];
+
+  const customerScore = customerFields.reduce((score, field) => {
+    return score + (headers.some((h) => h.includes(field)) ? 1 : 0);
+  }, 0);
+
+  const propertyScore = propertyFields.reduce((score, field) => {
+    return score + (headers.some((h) => h.includes(field)) ? 1 : 0);
+  }, 0);
+
+  if (customerScore > propertyScore && customerScore >= 2) return 'customers';
+  if (propertyScore > customerScore && propertyScore >= 2) return 'properties';
+  return 'unknown';
+};
+
+// CSV parsing utility
+export const parseCSVText = (text: string): string[][] => {
+  const parseCSVLine = (line: string): string[] => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim()); // Add the last field
+    return result;
+  };
+
+  return text
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .map((line) => parseCSVLine(line))
+    .filter((row) => row.some((cell) => cell && cell.trim().length > 0));
+};

@@ -2,20 +2,13 @@ import React, { useState } from 'react';
 
 interface Customer {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
-  property_type: string;
-  location: string;
-  price_min: number;
-  price_max: number;
-  bedrooms: number;
-  bathrooms: number;
-  amenities: string;
-  description: string;
-  profile: string;
-  created_at: string;
-  updated_at: string;
+  primaryAddress: string;
+  type: string;
+  fullName?: string; // computed field
 }
 
 interface CustomersPageProps {
@@ -27,42 +20,72 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ csvData }) => {
   const [sortBy, setSortBy] = useState('name');
 
   // Convert CSV data to customer objects
-  const customers: Customer[] =
-    csvData.length > 1
-      ? csvData.slice(1).map((row) => ({
-          id: row[0] || '',
-          name: row[1] || '',
-          email: row[2] || '',
-          phone: row[3] || '',
-          property_type: row[4] || '',
-          location: row[5] || '',
-          price_min: parseInt(row[6]) || 0,
-          price_max: parseInt(row[7]) || 0,
-          bedrooms: parseInt(row[8]) || 0,
-          bathrooms: parseInt(row[9]) || 0,
-          amenities: row[10] || '',
-          description: row[11] || '',
-          profile: row[12] || '',
-          created_at: row[13] || '',
-          updated_at: row[14] || '',
-        }))
-      : [];
+  const parseCsvToCustomers = (csvData: string[][]): Customer[] => {
+    if (csvData.length === 0) return [];
+
+    const headers = csvData[0].map((h) => h.toLowerCase().trim());
+    const rows = csvData
+      .slice(1)
+      .filter((row) => row.some((cell) => cell && cell.trim().length > 0));
+
+    return rows
+      .map((row, index) => {
+        const getField = (fieldNames: string[]): string => {
+          for (const fieldName of fieldNames) {
+            const headerIndex = headers.findIndex(
+              (h) => h.includes(fieldName) || fieldName.includes(h)
+            );
+            if (headerIndex !== -1 && row[headerIndex]) {
+              return row[headerIndex].trim();
+            }
+          }
+          return '';
+        };
+
+        const contactId = getField(['contact id', 'id', 'contact_id']);
+        const firstName = getField(['first name', 'firstname', 'first_name']);
+        const lastName = getField(['last name', 'lastname', 'last_name']);
+        const email = getField(['email', 'email_address']);
+        const phone = getField(['phone', 'phone_number', 'telephone']);
+        const primaryAddress = getField([
+          'primary address',
+          'address',
+          'primary_address',
+        ]);
+        const type = getField(['type', 'contact_type', 'category']);
+
+        return {
+          id: contactId || `customer_${index + 1}`,
+          firstName: firstName,
+          lastName: lastName,
+          email: email,
+          phone: phone,
+          primaryAddress: primaryAddress,
+          type: type || 'Buyer',
+          fullName: `${firstName} ${lastName}`.trim(),
+        };
+      })
+      .filter(
+        (customer) => customer.firstName || customer.lastName || customer.email
+      );
+  };
+
+  const customers: Customer[] = parseCsvToCustomers(csvData);
 
   // Filter and sort customers
   const filteredCustomers = customers
     .filter(
       (customer) =>
-        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        !searchTerm ||
+        customer.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.location.toLowerCase().includes(searchTerm.toLowerCase())
+        customer.primaryAddress.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
-      if (sortBy === 'name') return a.name.localeCompare(b.name);
-      if (sortBy === 'price_max') return b.price_max - a.price_max;
-      if (sortBy === 'created_at')
-        return (
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
+      if (sortBy === 'name')
+        return (a.fullName || '').localeCompare(b.fullName || '');
+      if (sortBy === 'email') return a.email.localeCompare(b.email);
+      if (sortBy === 'type') return a.type.localeCompare(b.type);
       return 0;
     });
 
@@ -132,8 +155,8 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ csvData }) => {
           }}
         >
           <option value='name'>Sort by Name</option>
-          <option value='price_max'>Sort by Max Budget</option>
-          <option value='created_at'>Sort by Date Added</option>
+          <option value='email'>Sort by Email</option>
+          <option value='type'>Sort by Type</option>
         </select>
       </div>
 
@@ -171,9 +194,23 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ csvData }) => {
           }}
         >
           <h3 style={{ margin: '0 0 5px 0', fontSize: '24px' }}>
-            {filteredCustomers.length}
+            {customers.filter((c) => c.type.toLowerCase() === 'buyer').length}
           </h3>
-          <p style={{ margin: 0, fontSize: '14px' }}>Filtered Results</p>
+          <p style={{ margin: 0, fontSize: '14px' }}>Buyers</p>
+        </div>
+        <div
+          style={{
+            padding: '20px',
+            backgroundColor: '#e74c3c',
+            color: 'white',
+            borderRadius: '8px',
+            textAlign: 'center',
+          }}
+        >
+          <h3 style={{ margin: '0 0 5px 0', fontSize: '24px' }}>
+            {customers.filter((c) => c.type.toLowerCase() === 'seller').length}
+          </h3>
+          <p style={{ margin: 0, fontSize: '14px' }}>Sellers</p>
         </div>
       </div>
 
@@ -211,28 +248,51 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ csvData }) => {
             >
               <div style={{ marginBottom: '15px' }}>
                 <h3 style={{ margin: '0 0 5px 0', color: '#2c3e50' }}>
-                  {customer.name}
+                  {customer.fullName}
                 </h3>
-                <p
+                <div
                   style={{
-                    margin: '0 0 10px 0',
-                    color: '#7f8c8d',
-                    fontSize: '14px',
+                    backgroundColor:
+                      customer.type.toLowerCase() === 'buyer'
+                        ? '#e8f5e8'
+                        : '#fff4e6',
+                    color:
+                      customer.type.toLowerCase() === 'buyer'
+                        ? '#27ae60'
+                        : '#f39c12',
+                    padding: '4px 8px',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    display: 'inline-block',
+                    marginBottom: '10px',
                   }}
                 >
-                  {customer.profile}
-                </p>
+                  {customer.type}
+                </div>
                 <div
                   style={{
                     display: 'flex',
                     gap: '15px',
                     fontSize: '14px',
                     color: '#555',
+                    flexWrap: 'wrap',
                   }}
                 >
                   <span>📧 {customer.email}</span>
                   <span>📱 {customer.phone}</span>
                 </div>
+                {customer.primaryAddress && (
+                  <div
+                    style={{
+                      marginTop: '8px',
+                      fontSize: '14px',
+                      color: '#555',
+                    }}
+                  >
+                    📍 {customer.primaryAddress}
+                  </div>
+                )}
               </div>
 
               <div style={{ marginBottom: '15px' }}>
@@ -249,40 +309,13 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ csvData }) => {
                   style={{ fontSize: '14px', color: '#555', lineHeight: '1.6' }}
                 >
                   <p style={{ margin: '5px 0' }}>
-                    <strong>Property:</strong> {customer.property_type} in{' '}
-                    {customer.location}
+                    <strong>ID:</strong> {customer.id}
                   </p>
                   <p style={{ margin: '5px 0' }}>
-                    <strong>Budget:</strong> {formatPrice(customer.price_min)} -{' '}
-                    {formatPrice(customer.price_max)}
+                    <strong>Type:</strong> {customer.type}
                   </p>
-                  <p style={{ margin: '5px 0' }}>
-                    <strong>Specs:</strong> {customer.bedrooms} bed,{' '}
-                    {customer.bathrooms} bath
-                  </p>
-                  {customer.amenities && (
-                    <p style={{ margin: '5px 0' }}>
-                      <strong>Amenities:</strong> {customer.amenities}
-                    </p>
-                  )}
                 </div>
               </div>
-
-              {customer.description && (
-                <div
-                  style={{
-                    backgroundColor: '#f8f9fa',
-                    padding: '10px',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                    color: '#555',
-                    fontStyle: 'italic',
-                    marginBottom: '10px',
-                  }}
-                >
-                  "{customer.description}"
-                </div>
-              )}
 
               <div
                 style={{
@@ -293,7 +326,7 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ csvData }) => {
                   paddingTop: '10px',
                 }}
               >
-                Added: {formatDate(customer.created_at)}
+                Contact ID: {customer.id}
               </div>
             </div>
           ))}

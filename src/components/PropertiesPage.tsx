@@ -17,10 +17,10 @@ import './Properties.css';
 import PropertyCard from './PropertyCard';
 
 interface PropertiesPageProps {
-  // For now, we'll use mock data. In a real app, this would come from props or API
+  csvData?: string[][];
 }
 
-const PropertiesPage: React.FC<PropertiesPageProps> = () => {
+const PropertiesPage: React.FC<PropertiesPageProps> = ({ csvData = [] }) => {
   const [filters, setFilters] = useState<PropertyFilters>({
     searchTerm: '',
     filterType: 'all',
@@ -123,9 +123,149 @@ const PropertiesPage: React.FC<PropertiesPageProps> = () => {
     },
   ];
 
+  // Function to parse CSV data into Property objects
+  const parseCsvToProperties = (csvData: string[][]): Property[] => {
+    if (csvData.length === 0) return [];
+
+    const headers = csvData[0].map((h) => h.toLowerCase().trim());
+    const rows = csvData
+      .slice(1)
+      .filter((row) => row.some((cell) => cell && cell.trim().length > 0));
+
+    if (rows.length === 0) return [];
+
+    return rows
+      .map((row, index) => {
+        const getField = (fieldNames: string[]): string => {
+          for (const fieldName of fieldNames) {
+            const headerIndex = headers.findIndex(
+              (h) => h.includes(fieldName) || fieldName.includes(h)
+            );
+            if (headerIndex !== -1 && row[headerIndex]) {
+              const value = row[headerIndex].trim();
+
+              // Debug logging for price field
+              if (
+                fieldNames.includes('price') &&
+                import.meta.env.REACT_APP_DEBUG === 'true'
+              ) {
+                console.log('Field match found:', {
+                  fieldName,
+                  headerIndex,
+                  header: headers[headerIndex],
+                  value,
+                });
+              }
+
+              return value;
+            }
+          }
+          return '';
+        };
+
+        const getNumberField = (fieldNames: string[]): number => {
+          const value = getField(fieldNames);
+          const parsed = parseFloat(value.replace(/[$,]/g, ''));
+
+          // Debug logging for price field
+          if (
+            fieldNames.includes('price') &&
+            import.meta.env.REACT_APP_DEBUG === 'true'
+          ) {
+            console.log('Price parsing:', { value, parsed, fieldNames });
+          }
+
+          return isNaN(parsed) ? 0 : parsed;
+        };
+
+        const getArrayField = (fieldNames: string[]): string[] => {
+          const value = getField(fieldNames);
+          if (!value) return [];
+          return value
+            .split(/[,;|]/)
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0);
+        };
+        const getStatusField = (): 'available' | 'pending' | 'sold' => {
+          const status = getField([
+            'status',
+            'availability',
+            'state',
+          ]).toLowerCase();
+          if (
+            status.includes('pending') ||
+            status.includes('contract') ||
+            status.includes('under contract')
+          )
+            return 'pending';
+          if (
+            status.includes('sold') ||
+            status.includes('closed') ||
+            status.includes('sale')
+          )
+            return 'sold';
+          return 'available';
+        };
+
+        const getPropertyType = (): string => {
+          const type = getField([
+            'type',
+            'property_type',
+            'category',
+          ]).toLowerCase();
+          const validTypes = [
+            'apartment',
+            'house',
+            'condo',
+            'townhouse',
+            'studio',
+            'loft',
+            'penthouse',
+          ];
+          const foundType = validTypes.find((validType) =>
+            type.includes(validType)
+          );
+          return foundType || 'apartment';
+        };
+
+        return {
+          id: `csv_prop_${index + 1}`,
+          title:
+            getField(['title', 'name', 'property_name', 'address']) ||
+            `Property ${index + 1}`,
+          type: getPropertyType(),
+          location:
+            getField(['location', 'address', 'city', 'area']) ||
+            'Unknown Location',
+          price: getNumberField(['price', 'cost', 'value', 'amount']),
+          bedrooms: getNumberField(['bedrooms', 'beds', 'bed', 'br']),
+          bathrooms: getNumberField(['bathrooms', 'baths', 'bath', 'ba']),
+          sqft: getNumberField(['sqft', 'square_feet', 'area', 'size']),
+          status: getStatusField(),
+          amenities: getArrayField(['amenities', 'features', 'extras']),
+          description:
+            getField(['description', 'details', 'notes']) ||
+            'No description available',
+          images: [] as string[], // CSV won't have images
+          agent:
+            getField(['agent', 'listing_agent', 'realtor', 'broker']) ||
+            'Unknown Agent',
+          listingDate:
+            getField(['listing_date', 'date_listed', 'date']) ||
+            new Date().toISOString().split('T')[0],
+        };
+      })
+      .filter((property) => property.title && property.location);
+  };
+
+  // Combine CSV data with mock data
+  const csvProperties = parseCsvToProperties(csvData);
+  const allProperties =
+    csvProperties.length > 0 ? csvProperties : mockProperties;
+
   // Apply filters and sorting
   const filteredProperties = sortProperties(
-    filterProperties(mockProperties, filters),
+    filterProperties(allProperties, filters),
     filters.sortBy
   );
 
@@ -134,7 +274,7 @@ const PropertiesPage: React.FC<PropertiesPageProps> = () => {
   };
 
   const handleFindSellers = async (propertyId: string) => {
-    const property = mockProperties.find((p) => p.id === propertyId);
+    const property = allProperties.find((p) => p.id === propertyId);
     if (!property) return;
 
     // Set loading state
@@ -195,6 +335,21 @@ const PropertiesPage: React.FC<PropertiesPageProps> = () => {
       <div className='page-header'>
         <h1>Properties</h1>
         <p>Browse and manage property listings</p>
+        {csvProperties.length > 0 && (
+          <div
+            style={{
+              background: '#e8f5e8',
+              color: '#2d5a27',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              fontSize: '14px',
+              marginTop: '10px',
+              border: '1px solid #c3e6c3',
+            }}
+          >
+            📊 Showing {csvProperties.length} properties from uploaded CSV data
+          </div>
+        )}
       </div>
 
       <PropertyFiltersComponent
@@ -203,7 +358,7 @@ const PropertiesPage: React.FC<PropertiesPageProps> = () => {
       />
 
       <PropertyStats
-        properties={mockProperties}
+        properties={allProperties}
         filteredProperties={filteredProperties}
       />
 
