@@ -89,20 +89,6 @@ const CustomersPage: React.FC<CustomersPageProps> = ({ csvData }) => {
       return 0;
     });
 
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(price);
-
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString();
-    } catch {
-      return dateString;
-    }
-  };
-
   return (
     <div
       style={{

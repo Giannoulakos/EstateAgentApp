@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
 import { findMatchesSimple } from '../actions/findMatch';
-import {
-  Property,
-  Match,
-  PropertyFilters,
-  MatchState,
-} from '../types/property';
+import { Property, PropertyFilters, MatchState } from '../types/property';
 import {
   filterProperties,
   sortProperties,
@@ -294,7 +289,18 @@ const PropertiesPage: React.FC<PropertiesPageProps> = ({ csvData = [] }) => {
         property.description
       }`;
 
-      const response = await findMatchesSimple(propertyDescription, 3);
+      let response;
+      try {
+        // Use the debug version to determine which approach works
+        response = await findMatchesSimple(
+          propertyDescription,
+          'sample_customers.csv',
+          3
+        );
+      } catch (error) {
+        console.error('All API approaches failed:', error);
+        throw error;
+      }
 
       setMatchState((prev) => ({
         ...prev,

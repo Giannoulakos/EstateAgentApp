@@ -13,8 +13,6 @@ const SUPPORTED_TYPES = import.meta.env.REACT_APP_SUPPORTED_FILE_TYPES?.split(
   ','
 ) || ['.csv'];
 const DEBUG_MODE = import.meta.env.REACT_APP_DEBUG === 'true';
-const APP_NAME = import.meta.env.REACT_APP_APP_NAME || 'Real Estate Agent';
-const API_URL = import.meta.env.REACT_APP_API_URL;
 
 function App() {
   const [customersCsvData, setCustomersCsvData] = useState<string[][]>([]);
