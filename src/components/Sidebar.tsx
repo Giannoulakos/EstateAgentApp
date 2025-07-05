@@ -9,6 +9,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const menuItems = [
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'properties', label: 'Properties', icon: '🏠' },
+    { id: 'add-data', label: 'Add Data', icon: '📊' },
   ];
 
   return (
