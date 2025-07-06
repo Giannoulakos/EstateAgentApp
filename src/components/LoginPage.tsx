@@ -6,6 +6,7 @@ interface LoginPageProps {
 
 const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if already authenticated on component mount
@@ -23,14 +24,48 @@ const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
     checkAuth();
   }, [onAuthSuccess]);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setIsLoading(true);
+    setError(null);
+
     try {
-      window.electronAPI.auth.login();
-      // Note: The actual authentication success will be handled by the main process
-      // and will trigger the onAuthSuccess callback through the app's auth state management
+      console.log('Initiating login...');
+      const result = await window.electronAPI.auth.login();
+
+      if (result.success) {
+        console.log('Login window closed, checking authentication status...');
+
+        // Poll for authentication status after login window closes
+        const checkAuthStatus = async () => {
+          try {
+            const isAuth = await window.electronAPI.auth.isAuthenticated();
+            if (isAuth) {
+              console.log('User authenticated successfully');
+              onAuthSuccess();
+            } else {
+              console.log(
+                'User not authenticated, login may have been cancelled'
+              );
+              setError('Login was cancelled or failed');
+            }
+          } catch (error) {
+            console.error('Error checking auth status after login:', error);
+            setError('Error checking authentication status');
+          } finally {
+            setIsLoading(false);
+          }
+        };
+
+        // Small delay to ensure auth state is updated
+        setTimeout(checkAuthStatus, 1000);
+      } else {
+        console.error('Login failed:', result.error);
+        setError(result.error || 'Login failed');
+        setIsLoading(false);
+      }
     } catch (error) {
       console.error('Error initiating login:', error);
+      setError('Error initiating login');
       setIsLoading(false);
     }
   };
@@ -144,6 +179,24 @@ const LoginPage: React.FC<LoginPageProps> = ({ onAuthSuccess }) => {
             </div>
           </div>
         </div>
+
+        {error && (
+          <div
+            style={{
+              background: '#fee',
+              color: '#c33',
+              padding: '12px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              border: '1px solid #fcc',
+              fontSize: '14px',
+              fontFamily:
+                '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            }}
+          >
+            {error}
+          </div>
+        )}
 
         <button
           onClick={handleLogin}

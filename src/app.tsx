@@ -60,10 +60,28 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
-    window.electronAPI.auth.logOut();
-    setIsAuthenticated(false);
-    setUserProfile(null);
+  const handleLogout = async () => {
+    try {
+      console.log('Logging out...');
+      const result = await window.electronAPI.auth.logOut();
+
+      if (result.success) {
+        console.log('Logout successful, updating UI state');
+        setIsAuthenticated(false);
+        setUserProfile(null);
+        setCurrentPage('customers'); // Reset to default page
+      } else {
+        console.error('Logout failed:', result.error);
+        // Still update UI state even if logout had issues
+        setIsAuthenticated(false);
+        setUserProfile(null);
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still update UI state even if logout had issues
+      setIsAuthenticated(false);
+      setUserProfile(null);
+    }
   };
 
   // Show loading state while checking authentication

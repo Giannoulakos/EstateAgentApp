@@ -107,32 +107,32 @@ app.on('ready', () => {
     }
   });
 
-  ipcMain.on('auth:log-out', () => {
+  ipcMain.handle('auth:log-out', async () => {
     console.log('Logout requested');
 
-    // Close main window
-    if (mainWindow) {
-      mainWindow.close();
-      mainWindow = null;
-    }
+    try {
+      // Clear the stored credentials
+      await authService.logout();
+      console.log('User logged out successfully');
 
-    // Create logout window and then show auth window
-    createLogoutWindow(() => {
-      console.log('Logout complete, showing login window');
-      createAuthWindow(() => {
-        console.log('Re-authentication successful, creating main window');
-        createWindow();
-      });
-    });
+      return { success: true };
+    } catch (error) {
+      console.error('Error during logout:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   });
 
-  ipcMain.on('auth:login', () => {
+  ipcMain.handle('auth:login', () => {
     console.log('Manual login requested');
-    createAuthWindow(() => {
-      console.log('Authentication successful, creating main window');
-      if (!mainWindow) {
-        createWindow();
-      }
+
+    return new Promise((resolve, reject) => {
+      createAuthWindow(() => {
+        console.log('Authentication successful');
+        resolve({ success: true });
+      });
     });
   });
 
@@ -145,8 +145,21 @@ app.on('ready', () => {
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    // Clean up any remaining auth windows before quitting
+    destroyAuthWindow();
     app.quit();
   }
+});
+
+app.on('before-quit', (event) => {
+  console.log('App is about to quit, cleaning up...');
+  // Clean up any auth windows gracefully
+  destroyAuthWindow();
+});
+
+app.on('will-quit', (event) => {
+  console.log('App will quit, final cleanup...');
+  // Final cleanup before the app actually quits
 });
 
 app.on('activate', () => {

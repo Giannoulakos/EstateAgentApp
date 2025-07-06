@@ -8,8 +8,8 @@ const authAPI = {
   getProfile: () => ipcRenderer.invoke('auth:get-profile'),
   getAccessToken: () => ipcRenderer.invoke('auth:get-access-token'),
   isAuthenticated: () => ipcRenderer.invoke('auth:is-authenticated'),
-  logOut: () => ipcRenderer.send('auth:log-out'),
-  login: () => ipcRenderer.send('auth:login'),
+  logOut: () => ipcRenderer.invoke('auth:log-out'),
+  login: () => ipcRenderer.invoke('auth:login'),
 };
 
 // Register the API with the contextBridge
