@@ -15,4 +15,5 @@ const authAPI = {
 // Register the API with the contextBridge
 contextBridge.exposeInMainWorld('electronAPI', {
   auth: authAPI,
+  openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
 });

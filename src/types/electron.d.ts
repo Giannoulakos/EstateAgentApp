@@ -13,6 +13,7 @@ export interface ElectronAPI {
     logOut: () => Promise<AuthResult>;
     login: () => Promise<AuthResult>;
   };
+  openExternal: (url: string) => Promise<void>;
 }
 
 declare global {

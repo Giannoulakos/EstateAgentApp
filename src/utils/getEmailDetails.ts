@@ -21,7 +21,7 @@ export function getEmailDetails(personalizedPitch: string): EmailDetails {
   let cleanedPitch = personalizedPitch.replace(/^Subject:\s*/i, '').trim();
 
   // Define sentence-ending punctuation
-  const sentenceEnders = ['.', ';', '?', '!'];
+  const sentenceEnders = ['.', ';', '?', '!', 'Dear', 'Hello', 'Hi'];
 
   // Find the first sentence ending
   let firstSentenceEnd = -1;
@@ -38,6 +38,7 @@ export function getEmailDetails(personalizedPitch: string): EmailDetails {
   let subject: string;
   if (firstSentenceEnd !== -1) {
     subject = cleanedPitch.substring(0, firstSentenceEnd).trim();
+    cleanedPitch = cleanedPitch.substring(firstSentenceEnd).trim();
   } else {
     // If no sentence ending found, limit to first 60 characters
     subject = cleanedPitch.substring(0, 60).trim();

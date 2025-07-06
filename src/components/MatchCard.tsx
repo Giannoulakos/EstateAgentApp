@@ -17,7 +17,15 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, propertyTitle }) => {
         emailDetails.subject,
         emailDetails.body
       );
-      window.open(mailtoUrl, '_blank');
+
+      // For Electron apps, we need to use shell.openExternal
+      // Check if we're running in Electron
+      if (window.electronAPI && window.electronAPI.openExternal) {
+        window.electronAPI.openExternal(mailtoUrl);
+      } else {
+        // Fallback for web browsers
+        window.location.href = mailtoUrl;
+      }
     } else {
       // Fallback: copy the pitch to clipboard if no email
       navigator.clipboard.writeText(match.personalized_pitch);

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import { URL } from 'node:url';
 import started from 'electron-squirrel-startup';
@@ -134,6 +134,17 @@ app.on('ready', () => {
         resolve({ success: true });
       });
     });
+  });
+
+  // Handle shell operations
+  ipcMain.handle('shell:open-external', async (event, url: string) => {
+    try {
+      await shell.openExternal(url);
+      console.log('Opened external URL:', url);
+    } catch (error) {
+      console.error('Error opening external URL:', error);
+      throw error;
+    }
   });
 
   // Show appropriate window based on auth state
