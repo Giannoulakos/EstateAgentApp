@@ -19,6 +19,7 @@ export interface Match {
   customer_id: string;
   customer_name: string;
   customer_phone: string;
+  customer_email?: string;
   customer_profile: string;
   match_analysis: string;
   personalized_pitch: string;

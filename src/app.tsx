@@ -3,8 +3,10 @@ import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import CustomersPage from './components/CustomersPage';
 import PropertiesPage from './components/PropertiesPage';
+import MatchesPage from './components/MatchesPage';
 import AddDataPage from './components/AddDataPage';
 import LoginPage from './components/LoginPage';
+import { Match } from './types/property';
 
 function App() {
   const [customersCsvData, setCustomersCsvData] = useState<string[][]>([]);
@@ -15,6 +17,15 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [userProfile, setUserProfile] = useState<any>(null);
+
+  // Matches state to store results from find sellers
+  const [matches, setMatches] = useState<
+    Array<{
+      propertyId: string;
+      propertyTitle: string;
+      matches: Match[];
+    }>
+  >([]);
 
   // Check authentication status on app load
   useEffect(() => {
@@ -120,6 +131,29 @@ function App() {
     setCustomersFileName(fileName);
   };
 
+  // Handler for when matches are found in PropertiesPage
+  const handleMatchesFound = (
+    propertyId: string,
+    propertyTitle: string,
+    newMatches: Match[]
+  ) => {
+    setMatches((prevMatches) => {
+      // Remove any existing matches for this property
+      const filteredMatches = prevMatches.filter(
+        (match) => match.propertyId !== propertyId
+      );
+
+      // Add the new matches
+      return [
+        { propertyId, propertyTitle, matches: newMatches },
+        ...filteredMatches,
+      ];
+    });
+
+    // Navigate to matches page
+    setCurrentPage('matches');
+  };
+
   return (
     <div
       style={{
@@ -166,8 +200,12 @@ function App() {
             <CustomersPage csvData={customersCsvData} />
           )}
           {currentPage === 'properties' && (
-            <PropertiesPage csvData={propertiesCsvData} />
+            <PropertiesPage
+              csvData={propertiesCsvData}
+              onMatchesFound={handleMatchesFound}
+            />
           )}
+          {currentPage === 'matches' && <MatchesPage matches={matches} />}
           {currentPage === 'add-data' && (
             <AddDataPage
               onPropertiesDataUpdate={handlePropertiesDataUpdate}

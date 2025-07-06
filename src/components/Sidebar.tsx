@@ -16,6 +16,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const menuItems = [
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'properties', label: 'Properties', icon: '🏠' },
+    { id: 'matches', label: 'Matches', icon: '🎯' },
     { id: 'add-data', label: 'Add Data', icon: '📊' },
   ];
 

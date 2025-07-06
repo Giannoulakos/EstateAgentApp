@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { findMatchesSimple } from '../actions/findMatch';
-import { Property, PropertyFilters, MatchState } from '../types/property';
+import {
+  Property,
+  PropertyFilters,
+  MatchState,
+  Match,
+} from '../types/property';
 import {
   filterProperties,
   sortProperties,
@@ -13,9 +18,17 @@ import PropertyCard from './PropertyCard';
 
 interface PropertiesPageProps {
   csvData?: string[][];
+  onMatchesFound?: (
+    propertyId: string,
+    propertyTitle: string,
+    matches: Match[]
+  ) => void;
 }
 
-const PropertiesPage: React.FC<PropertiesPageProps> = ({ csvData = [] }) => {
+const PropertiesPage: React.FC<PropertiesPageProps> = ({
+  csvData = [],
+  onMatchesFound,
+}) => {
   const [filters, setFilters] = useState<PropertyFilters>({
     searchTerm: '',
     filterType: 'all',
@@ -302,10 +315,16 @@ const PropertiesPage: React.FC<PropertiesPageProps> = ({ csvData = [] }) => {
         throw error;
       }
 
-      setMatchState((prev) => ({
-        ...prev,
-        matches: { ...prev.matches, [propertyId]: response.data },
-      }));
+      // If onMatchesFound callback is provided, use it to navigate to matches page
+      if (onMatchesFound) {
+        onMatchesFound(propertyId, property.title, response.data);
+      } else {
+        // Fallback to local state if no callback provided
+        setMatchState((prev) => ({
+          ...prev,
+          matches: { ...prev.matches, [propertyId]: response.data },
+        }));
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to find matches';
