@@ -1,6 +1,7 @@
 interface FindMatchesRequest {
   property_description: string;
   url: string;
+  user_id: string;
   k?: number; // Number of matches to return, default is 3
 }
 
@@ -93,6 +94,7 @@ export async function findMatchesSimple(
     const requestBody: FindMatchesRequest = {
       property_description: propertyDescription,
       url: url,
+      user_id: 'default_user',
       k: k,
     };
 

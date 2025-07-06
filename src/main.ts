@@ -1,37 +1,144 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
+import { URL } from 'node:url';
 import started from 'electron-squirrel-startup';
+import 'dotenv/config';
+
+// Import Auth0 modules
+import authService from './services/auth-service';
+import {
+  createAuthWindow,
+  createLogoutWindow,
+  destroyAuthWindow,
+} from './main/auth-process';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
 }
 
+// Register the custom protocol scheme
+app.setAsDefaultProtocolClient('real-estate-agent');
+
+let mainWindow: BrowserWindow | null = null;
+
 const createWindow = () => {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
     },
+    show: false,
+    title: 'Real Estate Agent',
   });
 
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+    mainWindow.loadFile(
+      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
+    );
   }
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // Show window when ready
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+  });
+
+  // Open the DevTools in development
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools();
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 };
+
+async function showWindow() {
+  try {
+    // Try to refresh tokens silently
+    await authService.refreshTokens();
+    console.log('User already authenticated, showing main window');
+    createWindow();
+  } catch (err) {
+    console.log('No valid session found, showing login window');
+    createAuthWindow(() => {
+      console.log('Authentication successful, creating main window');
+      createWindow();
+    });
+  }
+}
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.on('ready', createWindow);
+app.on('ready', () => {
+  // Handle IPC messages from the renderer process
+  ipcMain.handle('auth:get-profile', async () => {
+    try {
+      return authService.getProfile();
+    } catch (error) {
+      console.error('IPC auth:get-profile error:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('auth:get-access-token', async () => {
+    try {
+      return authService.getAccessToken();
+    } catch (error) {
+      console.error('IPC auth:get-access-token error:', error);
+      return null;
+    }
+  });
+
+  ipcMain.handle('auth:is-authenticated', async () => {
+    try {
+      return authService.isAuthenticated();
+    } catch (error) {
+      console.error('IPC auth:is-authenticated error:', error);
+      return false;
+    }
+  });
+
+  ipcMain.on('auth:log-out', () => {
+    console.log('Logout requested');
+
+    // Close main window
+    if (mainWindow) {
+      mainWindow.close();
+      mainWindow = null;
+    }
+
+    // Create logout window and then show auth window
+    createLogoutWindow(() => {
+      console.log('Logout complete, showing login window');
+      createAuthWindow(() => {
+        console.log('Re-authentication successful, creating main window');
+        createWindow();
+      });
+    });
+  });
+
+  ipcMain.on('auth:login', () => {
+    console.log('Manual login requested');
+    createAuthWindow(() => {
+      console.log('Authentication successful, creating main window');
+      if (!mainWindow) {
+        createWindow();
+      }
+    });
+  });
+
+  // Show appropriate window based on auth state
+  showWindow();
+});
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
@@ -46,7 +153,30 @@ app.on('activate', () => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+    showWindow();
+  }
+});
+
+// Handle protocol for authentication callback
+app.on('open-url', (event, url) => {
+  console.log('Protocol URL received:', url);
+
+  if (url.startsWith('real-estate-agent://callback')) {
+    const urlParts = new URL(url);
+    const code = urlParts.searchParams.get('code');
+
+    if (code) {
+      authService
+        .loadTokens(url)
+        .then(() => {
+          destroyAuthWindow();
+          createWindow();
+        })
+        .catch((error: Error) => {
+          console.error('Error exchanging code for tokens:', error);
+          destroyAuthWindow();
+        });
+    }
   }
 });
 

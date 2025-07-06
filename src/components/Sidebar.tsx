@@ -3,9 +3,16 @@ import React from 'react';
 interface SidebarProps {
   currentPage: string;
   onPageChange: (page: string) => void;
+  userProfile?: any;
+  onLogout: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  currentPage,
+  onPageChange,
+  userProfile,
+  onLogout,
+}) => {
   const menuItems = [
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'properties', label: 'Properties', icon: '🏠' },
@@ -87,6 +94,78 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           ))}
         </ul>
       </nav>
+
+      {/* User Profile Section */}
+      {userProfile && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '80px',
+            left: '20px',
+            right: '20px',
+            backgroundColor: '#34495e',
+            borderRadius: '8px',
+            padding: '15px',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ marginBottom: '10px' }}>
+            {userProfile.picture && (
+              <img
+                src={userProfile.picture}
+                alt='User Avatar'
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  marginBottom: '8px',
+                }}
+              />
+            )}
+            <p
+              style={{
+                margin: 0,
+                fontSize: '14px',
+                color: '#ecf0f1',
+                fontWeight: 'bold',
+              }}
+            >
+              {userProfile.name || userProfile.nickname || 'User'}
+            </p>
+            <p
+              style={{
+                margin: '2px 0 0 0',
+                fontSize: '12px',
+                color: '#bdc3c7',
+              }}
+            >
+              {userProfile.email}
+            </p>
+          </div>
+          <button
+            onClick={onLogout}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              backgroundColor: '#e74c3c',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              transition: 'all 0.3s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#c0392b';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#e74c3c';
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      )}
 
       <div
         style={{

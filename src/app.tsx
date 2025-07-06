@@ -1,9 +1,10 @@
 import { createRoot } from 'react-dom/client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import CustomersPage from './components/CustomersPage';
 import PropertiesPage from './components/PropertiesPage';
 import AddDataPage from './components/AddDataPage';
+import LoginPage from './components/LoginPage';
 
 function App() {
   const [customersCsvData, setCustomersCsvData] = useState<string[][]>([]);
@@ -11,6 +12,84 @@ function App() {
   const [customersFileName, setCustomersFileName] = useState<string>('');
   const [propertiesFileName, setPropertiesFileName] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<string>('customers');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [userProfile, setUserProfile] = useState<any>(null);
+
+  // Check authentication status on app load
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        const authenticated = await window.electronAPI.auth.isAuthenticated();
+
+        if (authenticated) {
+          // Only try to get profile if authenticated
+          try {
+            const profile = await window.electronAPI.auth.getProfile();
+            setUserProfile(profile);
+            setIsAuthenticated(true);
+          } catch (profileError) {
+            console.error('Error getting user profile:', profileError);
+            // If profile fails, user might need to re-authenticate
+            setIsAuthenticated(false);
+            setUserProfile(null);
+          }
+        } else {
+          setIsAuthenticated(false);
+          setUserProfile(null);
+        }
+      } catch (error) {
+        console.error('Error checking authentication status:', error);
+        setIsAuthenticated(false);
+        setUserProfile(null);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    checkAuthStatus();
+  }, []);
+
+  const handleAuthSuccess = async () => {
+    try {
+      const profile = await window.electronAPI.auth.getProfile();
+      setUserProfile(profile);
+      setIsAuthenticated(true);
+    } catch (error) {
+      console.error('Error getting user profile:', error);
+    }
+  };
+
+  const handleLogout = () => {
+    window.electronAPI.auth.logOut();
+    setIsAuthenticated(false);
+    setUserProfile(null);
+  };
+
+  // Show loading state while checking authentication
+  if (isAuthLoading) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          fontSize: '18px',
+          fontFamily: 'Arial, sans-serif',
+        }}
+      >
+        Loading...
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage onAuthSuccess={handleAuthSuccess} />;
+  }
 
   // Callback functions for AddDataPage
   const handlePropertiesDataUpdate = (data: string[][], fileName: string) => {
@@ -32,7 +111,12 @@ function App() {
         overflow: 'hidden',
       }}
     >
-      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
+      <Sidebar
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        userProfile={userProfile}
+        onLogout={handleLogout}
+      />
 
       <div
         style={{
