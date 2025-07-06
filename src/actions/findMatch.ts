@@ -98,7 +98,7 @@ export async function findMatchesSimple(
       k: k,
     };
 
-    const response = await apiRequest<FindMatchesResponse>('/find-matches', {
+    const response = await apiRequest<FindMatchesResponse>('/matches/find', {
       method: 'POST',
       body: JSON.stringify(requestBody),
     });
