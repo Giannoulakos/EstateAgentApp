@@ -2,8 +2,10 @@
 const { jwtDecode } = require('jwt-decode');
 const axios = require('axios');
 const { parse: parseUrl } = require('url');
-const keytar = require('keytar');
+const { app, safeStorage } = require('electron');
 const { userInfo } = require('os');
+const fs = require('fs');
+const path = require('path');
 require('dotenv/config');
 
 // Define types
@@ -13,12 +15,6 @@ interface UserProfile {
   picture?: string;
   sub?: string;
   [key: string]: any;
-}
-
-interface TokenResponse {
-  access_token: string;
-  id_token?: string;
-  refresh_token?: string;
 }
 
 interface AuthResult {
@@ -38,6 +34,118 @@ if (!auth0Domain || !clientId) {
 const redirectUri = 'real-estate-agent://callback';
 const keytarService = 'real-estate-agent-electron';
 const keytarAccount = userInfo().username;
+
+// Helper functions for secure storage using Electron's safeStorage
+const getStorageFilePath = () => {
+  const userDataPath = app.getPath('userData');
+  return path.join(userDataPath, 'secure-storage.dat');
+};
+
+const storeSecureData = async (key: string, data: string): Promise<void> => {
+  try {
+    const filePath = getStorageFilePath();
+    let storage: Record<string, string> = {};
+
+    // Read existing data if file exists
+    if (fs.existsSync(filePath)) {
+      try {
+        const encryptedData = fs.readFileSync(filePath);
+        if (encryptedData.length > 0 && safeStorage.isEncryptionAvailable()) {
+          const decryptedData = safeStorage.decryptString(encryptedData);
+          storage = JSON.parse(decryptedData);
+        }
+      } catch (error) {
+        console.warn('Error reading existing storage, creating new:', error);
+        storage = {};
+      }
+    }
+
+    // Update storage with new data
+    storage[key] = data;
+
+    // Encrypt and save
+    const dataToStore = JSON.stringify(storage);
+    if (safeStorage.isEncryptionAvailable()) {
+      const encryptedData = safeStorage.encryptString(dataToStore);
+      fs.writeFileSync(filePath, encryptedData);
+    } else {
+      // Fallback to plain text if encryption not available
+      console.warn('Encryption not available, storing in plain text');
+      fs.writeFileSync(filePath, dataToStore);
+    }
+  } catch (error) {
+    console.error('Error storing secure data:', error);
+    throw error;
+  }
+};
+
+const getSecureData = async (key: string): Promise<string | null> => {
+  try {
+    const filePath = getStorageFilePath();
+
+    if (!fs.existsSync(filePath)) {
+      return null;
+    }
+
+    const fileData = fs.readFileSync(filePath);
+    if (fileData.length === 0) {
+      return null;
+    }
+
+    let storage: Record<string, string> = {};
+
+    if (safeStorage.isEncryptionAvailable()) {
+      const decryptedData = safeStorage.decryptString(fileData);
+      storage = JSON.parse(decryptedData);
+    } else {
+      // Fallback for plain text
+      storage = JSON.parse(fileData.toString());
+    }
+
+    return storage[key] || null;
+  } catch (error) {
+    console.error('Error retrieving secure data:', error);
+    return null;
+  }
+};
+
+const deleteSecureData = async (key: string): Promise<void> => {
+  try {
+    const filePath = getStorageFilePath();
+
+    if (!fs.existsSync(filePath)) {
+      return;
+    }
+
+    const fileData = fs.readFileSync(filePath);
+    if (fileData.length === 0) {
+      return;
+    }
+
+    let storage: Record<string, string> = {};
+
+    if (safeStorage.isEncryptionAvailable()) {
+      const decryptedData = safeStorage.decryptString(fileData);
+      storage = JSON.parse(decryptedData);
+    } else {
+      storage = JSON.parse(fileData.toString());
+    }
+
+    delete storage[key];
+
+    // Save updated storage
+    const dataToStore = JSON.stringify(storage);
+    if (safeStorage.isEncryptionAvailable()) {
+      const encryptedData = safeStorage.encryptString(dataToStore);
+      fs.writeFileSync(filePath, encryptedData);
+    } else {
+      fs.writeFileSync(filePath, dataToStore);
+    }
+  } catch (error) {
+    console.error('Error deleting secure data:', error);
+    throw error;
+  }
+};
 
 let accessToken: string | null = null;
 let profile: UserProfile | null = null;
@@ -59,10 +167,7 @@ export const getAuthenticationURL = (): string => {
 };
 
 export const refreshTokens = async (): Promise<AuthResult> => {
-  const storedRefreshToken = await keytar.getPassword(
-    keytarService,
-    keytarAccount
-  );
+  const storedRefreshToken = await getSecureData('refreshToken');
 
   if (!storedRefreshToken) {
     throw new Error('No available refresh token.');
@@ -90,7 +195,7 @@ export const refreshTokens = async (): Promise<AuthResult> => {
     // Update refresh token if a new one is provided
     if (response.data.refresh_token) {
       refreshToken = response.data.refresh_token;
-      await keytar.setPassword(keytarService, keytarAccount, refreshToken);
+      await storeSecureData('refreshToken', refreshToken);
     }
 
     console.log('Tokens refreshed successfully');
@@ -142,7 +247,7 @@ export const loadTokens = async (callbackURL: string): Promise<AuthResult> => {
     refreshToken = response.data.refresh_token;
 
     if (refreshToken) {
-      await keytar.setPassword(keytarService, keytarAccount, refreshToken);
+      await storeSecureData('refreshToken', refreshToken);
     }
 
     console.log(
@@ -163,7 +268,7 @@ export const loadTokens = async (callbackURL: string): Promise<AuthResult> => {
 
 export const logout = async (): Promise<void> => {
   try {
-    await keytar.deletePassword(keytarService, keytarAccount);
+    await deleteSecureData('refreshToken');
     console.log('Stored credentials cleared');
   } catch (error) {
     console.warn(
