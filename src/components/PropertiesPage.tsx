@@ -43,93 +43,7 @@ const PropertiesPage: React.FC<PropertiesPageProps> = ({
   });
 
   // Mock property data (in a real app, this would come from an API or props)
-  const mockProperties: Property[] = [
-    {
-      id: 'prop_001',
-      title: 'Luxury Manhattan Penthouse',
-      type: 'penthouse',
-      location: 'Upper East Side, Manhattan',
-      price: 4500000,
-      bedrooms: 4,
-      bathrooms: 4,
-      sqft: 3200,
-      status: 'available',
-      amenities: ['Private elevator', 'Terrace', 'Doorman', 'Gym'],
-      description:
-        'Stunning penthouse with panoramic city views, private terrace, and luxury finishes throughout.',
-      images: ['https://via.placeholder.com/300x200'],
-      agent: 'John Smith',
-      listingDate: '2024-01-15',
-    },
-    {
-      id: 'prop_002',
-      title: 'Modern SoHo Loft',
-      type: 'loft',
-      location: 'SoHo, Manhattan',
-      price: 1800000,
-      bedrooms: 2,
-      bathrooms: 2,
-      sqft: 1800,
-      status: 'pending',
-      amenities: ['High ceilings', 'Exposed brick', 'Modern kitchen'],
-      description:
-        'Beautiful loft with industrial charm and modern amenities in the heart of SoHo.',
-      images: ['https://via.placeholder.com/300x200'],
-      agent: 'Sarah Johnson',
-      listingDate: '2024-01-10',
-    },
-    {
-      id: 'prop_003',
-      title: 'Brooklyn Heights Townhouse',
-      type: 'house',
-      location: 'Brooklyn Heights, Brooklyn',
-      price: 2200000,
-      bedrooms: 3,
-      bathrooms: 2,
-      sqft: 2400,
-      status: 'available',
-      amenities: ['Garden', 'Parking', 'Historic details', 'Roof deck'],
-      description:
-        'Historic townhouse with beautiful garden and stunning Manhattan views.',
-      images: ['https://via.placeholder.com/300x200'],
-      agent: 'Mike Davis',
-      listingDate: '2024-01-12',
-    },
-    {
-      id: 'prop_004',
-      title: 'Upper West Side Apartment',
-      type: 'apartment',
-      location: 'Upper West Side, Manhattan',
-      price: 1200000,
-      bedrooms: 2,
-      bathrooms: 1,
-      sqft: 1200,
-      status: 'sold',
-      amenities: ['Doorman', 'Laundry', 'Near subway'],
-      description:
-        'Charming pre-war apartment with original details and modern updates.',
-      images: ['https://via.placeholder.com/300x200'],
-      agent: 'Emily Wilson',
-      listingDate: '2024-01-08',
-    },
-    {
-      id: 'prop_005',
-      title: 'Queens Studio',
-      type: 'studio',
-      location: 'Long Island City, Queens',
-      price: 650000,
-      bedrooms: 1,
-      bathrooms: 1,
-      sqft: 650,
-      status: 'available',
-      amenities: ['New building', 'Gym', 'Rooftop terrace'],
-      description:
-        'Modern studio in new building with excellent amenities and Manhattan views.',
-      images: ['https://via.placeholder.com/300x200'],
-      agent: 'David Brown',
-      listingDate: '2024-01-14',
-    },
-  ];
+  // Removed mock properties - only use CSV data
 
   // Function to parse CSV data into Property objects
   const parseCsvToProperties = (csvData: string[][]): Property[] => {
@@ -268,8 +182,7 @@ const PropertiesPage: React.FC<PropertiesPageProps> = ({
 
   // Combine CSV data with mock data
   const csvProperties = parseCsvToProperties(csvData);
-  const allProperties =
-    csvProperties.length > 0 ? csvProperties : mockProperties;
+  const allProperties = csvProperties;
 
   // Apply filters and sorting
   const filteredProperties = sortProperties(
@@ -360,7 +273,7 @@ const PropertiesPage: React.FC<PropertiesPageProps> = ({
       <div className='page-header'>
         <h1>Properties</h1>
         <p>Browse and manage property listings</p>
-        {csvProperties.length > 0 && (
+        {allProperties.length > 0 && (
           <div
             style={{
               background: '#e8f5e8',
@@ -372,22 +285,31 @@ const PropertiesPage: React.FC<PropertiesPageProps> = ({
               border: '1px solid #c3e6c3',
             }}
           >
-            📊 Showing {csvProperties.length} properties from uploaded CSV data
+            📊 Showing {allProperties.length} properties from uploaded CSV data
           </div>
         )}
       </div>
 
-      <PropertyFiltersComponent
-        filters={filters}
-        onFiltersChange={handleFiltersChange}
-      />
+      {allProperties.length > 0 && (
+        <>
+          <PropertyFiltersComponent
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+          />
 
-      <PropertyStats
-        properties={allProperties}
-        filteredProperties={filteredProperties}
-      />
+          <PropertyStats
+            properties={allProperties}
+            filteredProperties={filteredProperties}
+          />
+        </>
+      )}
 
-      {filteredProperties.length > 0 ? (
+      {allProperties.length === 0 ? (
+        <div className='no-properties'>
+          <h3>No properties found</h3>
+          <p>Upload a CSV file with property data to get started</p>
+        </div>
+      ) : filteredProperties.length > 0 ? (
         <div className='properties-grid'>
           {filteredProperties.map((property) => (
             <PropertyCard
