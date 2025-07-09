@@ -32,8 +32,6 @@ if (!auth0Domain || !clientId) {
 }
 
 const redirectUri = 'real-estate-agent://callback';
-const keytarService = 'real-estate-agent-electron';
-const keytarAccount = userInfo().username;
 
 // Helper functions for secure storage using Electron's safeStorage
 const getStorageFilePath = () => {

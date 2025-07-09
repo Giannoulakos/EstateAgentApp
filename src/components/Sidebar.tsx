@@ -13,6 +13,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   userProfile,
   onLogout,
 }) => {
+  // Debug: Log userProfile to console
+  console.log('User Profile:', userProfile);
+
   const menuItems = [
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'properties', label: 'Properties', icon: '🏠' },
@@ -121,7 +124,38 @@ const Sidebar: React.FC<SidebarProps> = ({
                   borderRadius: '50%',
                   marginBottom: '8px',
                 }}
+                onError={(e) => {
+                  console.error('Error loading avatar image:', e);
+                  e.currentTarget.style.display = 'none';
+                }}
               />
+            )}
+            {/* Fallback avatar if no picture */}
+            {!userProfile.picture && (
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: '#3498db',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 8px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  color: 'white',
+                }}
+              >
+                {(
+                  userProfile.name ||
+                  userProfile.nickname ||
+                  userProfile.email ||
+                  'U'
+                )
+                  .charAt(0)
+                  .toUpperCase()}
+              </div>
             )}
             <p
               style={{
