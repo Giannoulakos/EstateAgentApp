@@ -114,6 +114,7 @@ const deleteSecureData = async (key: string): Promise<void> => {
     const filePath = getStorageFilePath();
 
     if (!fs.existsSync(filePath)) {
+      console.warn('Secure storage file does not exist, nothing to delete');
       return;
     }
 
