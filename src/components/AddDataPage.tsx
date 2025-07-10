@@ -16,7 +16,59 @@ const AddDataPage: React.FC<AddDataPageProps> = ({
     message: string;
   }>({ type: null, message: '' });
 
-  const handleFileUpload = (
+  // Function to upload customer data to API
+  const uploadCustomerDataToAPI = async (file: File): Promise<void> => {
+    try {
+      // Get the API URL from environment variables
+      const apiUrl = import.meta.env.REACT_APP_API_URL;
+      if (!apiUrl) {
+        throw new Error(
+          'API URL not configured. Please check your environment variables.'
+        );
+      }
+
+      // Get access token for authentication
+      const accessToken = await window.electronAPI.auth.getAccessToken();
+      if (!accessToken) {
+        throw new Error('No access token available. Please log in again.');
+      }
+
+      // Create FormData for multipart/form-data request
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('name', file.name.replace('.csv', ''));
+      formData.append(
+        'description',
+        `Customer data uploaded from ${file.name}`
+      );
+      formData.append('sync_to_vector_db', 'true');
+
+      // Make API call
+      const response = await fetch(`${apiUrl}/uploads/customer-data`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          // Don't set Content-Type for FormData, let browser set it with boundary
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `HTTP ${response.status}: ${errorText || response.statusText}`
+        );
+      }
+
+      const result = await response.json();
+      console.log('Customer data uploaded successfully:', result);
+    } catch (error) {
+      console.error('Error uploading customer data:', error);
+      throw error;
+    }
+  };
+
+  const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>,
     dataType: 'properties' | 'customers'
   ) => {
@@ -42,6 +94,52 @@ const AddDataPage: React.FC<AddDataPageProps> = ({
       return;
     }
 
+    // Set loading status
+    setUploadStatus({
+      type: 'info',
+      message: `Uploading ${dataType} data...`,
+    });
+
+    // For customer data, make API call
+    if (dataType === 'customers') {
+      try {
+        await uploadCustomerDataToAPI(file);
+
+        // Also parse and update local state for immediate UI feedback
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const csvText = e.target?.result as string;
+            const parsedData = parseCSVText(csvText);
+            onCustomersDataUpdate(parsedData, file.name);
+          } catch (error) {
+            console.warn('Error parsing CSV for local state:', error);
+          }
+        };
+        reader.readAsText(file);
+
+        setUploadStatus({
+          type: 'success',
+          message: `Successfully uploaded customer data from ${file.name} to the server.`,
+        });
+
+        // Clear the file input
+        event.target.value = '';
+        return;
+      } catch (error) {
+        setUploadStatus({
+          type: 'error',
+          message: `Error uploading to server: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`,
+        });
+        // Clear the file input
+        event.target.value = '';
+        return;
+      }
+    }
+
+    // For properties data, use the existing local processing
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -59,11 +157,8 @@ const AddDataPage: React.FC<AddDataPageProps> = ({
         // Detect CSV type
         const detectedType = detectCsvType(parsedData);
 
-        // Check if the detected type matches the intended type
-        if (
-          (dataType === 'properties' && detectedType === 'customers') ||
-          (dataType === 'customers' && detectedType === 'properties')
-        ) {
+        // Check if the detected type matches the intended type (only for properties now)
+        if (dataType === 'properties' && detectedType === 'customers') {
           setUploadStatus({
             type: 'error',
             message: `This appears to be a ${detectedType} CSV file, but you're trying to upload it as ${dataType}. Please check your file or use the correct upload section.`,
@@ -71,12 +166,8 @@ const AddDataPage: React.FC<AddDataPageProps> = ({
           return;
         }
 
-        // Update the appropriate data
-        if (dataType === 'properties') {
-          onPropertiesDataUpdate(parsedData, file.name);
-        } else {
-          onCustomersDataUpdate(parsedData, file.name);
-        }
+        // Update properties data (customers are handled by API)
+        onPropertiesDataUpdate(parsedData, file.name);
 
         setUploadStatus({
           type: 'success',
